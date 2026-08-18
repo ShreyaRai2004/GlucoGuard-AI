@@ -1,119 +1,57 @@
 # GlucoGuard AI
 
-**A machine learning system that predicts diabetes risk — built to catch more at-risk patients than standard models, and to explain every prediction it makes.**
+A machine learning system that predicts diabetes risk — either from manually entered health details, or automatically from an uploaded medical report (image or PDF). Designed to catch more at-risk patients than standard accuracy-driven models, with every prediction explained via SHAP.
 
-[![Python](https://img.shields.io/badge/Python-3.10-blue)]()
-[![scikit-learn](https://img.shields.io/badge/scikit--learn-1.6-orange)]()
-[![Streamlit](https://img.shields.io/badge/Streamlit-App-red)]()
+## Two Ways to Use It
 
----
+1. **Manual Entry** — enter BMI, blood pressure, cholesterol, age, etc. yourself using sliders/toggles
+2. **Upload Medical Report** — upload a photo or PDF of a real health report; the app reads it using OCR, pre-fills the same form automatically, and shows exactly what it found so you can review before predicting
 
-## The Problem
-
-Most machine learning models for disease prediction are optimized for one number: accuracy. That sounds right until you look closer — in a dataset where 85% of people are healthy and 15% have diabetes, a model can hit 85% accuracy by barely detecting anyone with diabetes at all. In healthcare, that's the wrong failure mode: **missing a sick patient is far more costly than a false alarm.**
-
-GlucoGuard AI is built around that insight. Instead of chasing accuracy, it's designed to maximize recall on the at-risk class — while staying interpretable and statistically validated, not just a black box that "seems to work."
-
-## What It Does
-
-Given a person's health indicators (BMI, blood pressure, cholesterol, age, general health, etc.), GlucoGuard AI predicts their diabetes risk and shows **why** — which specific factors pushed the prediction up or down — through a live, interactive web app.
+Either path feeds into the **same trained model** and produces the same kind of result: a diabetes risk prediction with a SHAP explanation of which factors drove it.
 
 ## Results
 
-| Model | Accuracy | Recall (catches at-risk patients) | ROC-AUC |
-|---|---|---|---|
-| Logistic Regression | 85.0% | 14.2% | 0.805 |
-| Random Forest | 85.3% | 13.0% | 0.809 |
-| SVM | 85.1% | 8.6% | 0.654 |
-| Gradient Boosting (best baseline) | 85.5% | 15.7% | 0.813 |
-| **GlucoGuard AI (proposed)** | **83.6%** | **41.3%** | 0.811 |
+| Model | Accuracy | Recall |
+|---|---|---|
+| Best baseline (Gradient Boosting) | 85.5% | 15.7% |
+| **GlucoGuard AI (proposed)** | **83.6%** | **41.3%** |
 
-The proposed model **nearly triples recall** over the best standard model, at a ~2-point cost in accuracy — a deliberate, measured trade-off, statistically confirmed with a paired t-test (p < 0.001) rather than just eyeballed.
+The proposed model catches roughly **4 out of 10 actual diabetic patients**, nearly triple the baseline's ~1.5 out of 10 — statistically significant (p < 0.001), at a small accuracy trade-off.
 
-## How It Works
+## Method
 
-```
-Raw survey data (253,680 records)
-        |
-        v
-  Cleaning & EDA  ->  229,474 records, 0 missing values
-        |
-        v
-  Hybrid Feature Selection
-  (Mutual Information (intersect) Recursive Feature Elimination)  ->  8 features
-        |
-        v
-  Cost-Sensitive Stacked Ensemble
-  (Logistic Regression + Random Forest + Gradient Boosting -> meta Logistic Regression)
-        |
-        v
-  SHAP Explainability  +  Statistical Validation (paired t-test, Wilcoxon)
-        |
-        v
-  Streamlit Web App -- live prediction + live explanation
-```
-
-**Why this architecture, briefly:**
-- **Hybrid feature selection** (not just one method) — a filter method (Mutual Information) and a wrapper method (RFE) rarely agree on everything; keeping only the features both agree on gives a cleaner, more defensible feature set than trusting either alone.
-- **Stacking, not voting** — a meta-learner learns *how* to weigh each base model's opinion, rather than averaging them blindly.
-- **Cost-sensitive weighting, not SMOTE** — class weighting adjusts the model's decision boundary directly, without synthesizing artificial data points that can introduce noise.
-- **SHAP over generic feature importance** — SHAP explains individual predictions, not just global trends, so each user gets a personalized explanation.
+1. **Hybrid Feature Selection** — Mutual Information + Recursive Feature Elimination, intersected → 8 features
+2. **Cost-Sensitive Stacked Ensemble** — Logistic Regression + Random Forest + Gradient Boosting, meta-learner: Logistic Regression, with class weighting to reduce false negatives
+3. **OCR Report Extraction** — Tesseract OCR reads uploaded reports and maps detected values (BMI, BP, cholesterol, age, medical history) to model inputs
+4. **SHAP** — explains each individual prediction
+5. **Statistical validation** — paired t-test / Wilcoxon on cross-validated recall
 
 ## Tech Stack
 
-- **Language:** Python 3.10
-- **ML:** scikit-learn (feature selection, ensemble models, StackingClassifier)
-- **Explainability:** SHAP
-- **Statistics:** SciPy (paired t-test, Wilcoxon signed-rank test)
-- **Data:** pandas, NumPy
-- **Visualization:** Matplotlib, Seaborn
-- **App:** Streamlit
-- **Dataset:** CDC Diabetes Health Indicators (BRFSS 2015) — 253,680 records, 21 features
+Python, pandas, NumPy, scikit-learn, SHAP, SciPy, Matplotlib, Seaborn, Streamlit, Tesseract OCR (pytesseract), pdf2image
 
-## Project Structure
+## Dataset
 
-```
-GlucoGuard-AI/
-├── data/
-│   └── diabetes_binary_health_indicators_BRFSS2015.csv
-├── outputs/                                    # trained models, results, figures
-├── 01_data_preprocessing_eda.py                # cleaning + exploratory analysis
-├── 02_feature_selection_baseline_models.py     # hybrid feature selection + baselines
-├── 03_cost_sensitive_stacking_ensemble.py      # proposed model + ablation study
-├── 04_explainability_and_validation.py         # SHAP + significance testing
-├── app.py                                      # Streamlit live demo
-├── requirements.txt
-└── README.md
-```
+CDC Diabetes Health Indicators (BRFSS 2015) — 253,680 records, 21 features
 
-## Running It
+## Project Files
+
+- `train.py` — trains the full pipeline from scratch
+- `test.py` — evaluates the saved model, prints accuracy/recall/confusion matrix
+- `app.py` — the Streamlit app (both input modes)
+- `sample_reports/` — two demo report images (high-risk and low-risk) for testing the upload feature
+
+## Run It
 
 ```bash
 pip install -r requirements.txt
 streamlit run app.py
 ```
 
-Opens at `http://localhost:8501`. The trained model is already included in `outputs/` — no retraining needed to try the demo. To reproduce the full pipeline from scratch, run the numbered scripts in order.
+The trained model is already in `outputs/` — no retraining needed. To retrain from scratch: `python train.py`, then check results with `python test.py`.
 
-> **Note:** `requirements.txt` pins exact library versions. The trained models were serialized with these versions — installing different numpy/scikit-learn versions can cause deserialization errors when loading them.
-
-## Ablation Study
-
-Cost-weight ratio (diabetic : healthy penalty) was tuned rather than guessed:
-
-| Weight Ratio | Accuracy | Recall | F1-Score |
-|---|---|---|---|
-| 1:1 (no cost-sensitivity) | 85.4% | 19.7% | 0.292 |
-| **2:1 (chosen)** | **83.6%** | **41.3%** | **0.434** |
-| 3:1 | 80.0% | 56.8% | 0.465 |
-| 4:1 | 76.8% | 65.8% | 0.464 |
-
-2:1 was selected because F1-score gains plateau beyond this point — further weighting trades meaningful accuracy for comparatively small additional recall.
+> OCR requires Tesseract installed locally (see setup notes below). On Streamlit Cloud, `packages.txt` installs it automatically.
 
 ## Live Demo
 
-https://glucoguard-ai-adlwqc3ykwoib5tzey49ql.streamlit.app/
-
----
-
-*Built as an academic project exploring cost-sensitive learning and explainable AI in healthcare ML.*
+*(Add your Streamlit Cloud link here)*
