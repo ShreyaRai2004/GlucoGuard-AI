@@ -54,4 +54,4 @@ The trained model is already in `outputs/` — no retraining needed. To retrain 
 
 ## Live Demo
 
-*(Add your Streamlit Cloud link here)*
+https://glucoguard-ai-adlwqc3ykwoib5tzey49ql.streamlit.app/
