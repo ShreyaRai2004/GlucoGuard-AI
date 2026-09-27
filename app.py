@@ -102,7 +102,7 @@ def extract_fields_from_text(text):
     updates = {}
     summary = []
 
-    m = re.search(r"BMI[:\s]+(\d+\.?\d*)", text, re.IGNORECASE)
+    m = re.search(r"BMI\b[^0-9]{0,60}?(\d{1,2}\.?\d*)", text, re.IGNORECASE)
     if m:
         val = float(m.group(1))
         updates["bmi"] = val
@@ -142,41 +142,63 @@ def extract_fields_from_text(text):
     else:
         summary.append(("Cholesterol", "not found — kept default", False))
 
-    m = re.search(r"Heart Disease[^\n:]*[:\s]+(\w+)", text, re.IGNORECASE)
+    m = re.search(r"Heart Disease[\s\S]{0,100}?\b(Yes|No)\b", text, re.IGNORECASE)
     if m:
-        val = "yes" in m.group(1).lower()
+        val = m.group(1).lower() == "yes"
         updates["heart"] = val
         summary.append(("Heart Disease History", str(val), True))
     else:
         summary.append(("Heart Disease History", "not found — kept default", False))
 
-    m = re.search(r"Smoker[^\n:]*[:\s]+(\w+)", text, re.IGNORECASE)
+    m = re.search(r"Smoker[\s\S]{0,100}?\b(Yes|No)\b", text, re.IGNORECASE)
     if m:
-        val = "yes" in m.group(1).lower()
+        val = m.group(1).lower() == "yes"
         updates["smoker"] = val
         summary.append(("Smoker", str(val), True))
     else:
         summary.append(("Smoker", "not found — kept default", False))
 
-    m = re.search(r"Stroke[^\n:]*[:\s]+(\w+)", text, re.IGNORECASE)
+    m = re.search(r"Stroke[\s\S]{0,100}?\b(Yes|No)\b", text, re.IGNORECASE)
     if m:
-        val = "yes" in m.group(1).lower()
+        val = m.group(1).lower() == "yes"
         updates["stroke"] = val
         summary.append(("Stroke History", str(val), True))
     else:
         summary.append(("Stroke History", "not found — kept default", False))
 
-    m = re.search(r"(?:General Health|Health Assessment)[^\n:]*[:\s]+(\w+\s?\w*)", text, re.IGNORECASE)
+    m = re.search(r"(?:General Health|Health Assessment)[\s\S]{0,100}?\b(Excellent|Very Good|Good|Fair|Poor)\b",
+                  text, re.IGNORECASE)
     if m:
         gh = genhlth_from_text(m.group(1))
         if gh:
             updates["genhlth"] = gh
             summary.append(("General Health", f"{m.group(1).strip()} -> level {gh}", True))
-    m = re.search(r"Sex[:\s]+(\w+)", text, re.IGNORECASE)
+    else:
+        summary.append(("General Health", "not found — kept default", False))
+
+    m = re.search(r"Sex\b[\s\S]{0,15}?\b(Male|Female)\b", text, re.IGNORECASE)
     if m:
-        val = "Male" if "m" in m.group(1).lower()[0:1] else "Female"
+        val = "Male" if m.group(1).lower() == "male" else "Female"
         updates["sex"] = val
         summary.append(("Sex", val, True))
+    else:
+        summary.append(("Sex", "not found — kept default", False))
+
+    m = re.search(r"Physically Unwell Days[^)]*\)[\s\S]{0,30}?(\d{1,2})\s*days?", text, re.IGNORECASE)
+    if m:
+        val = int(m.group(1))
+        updates["physhlth"] = val
+        summary.append(("Physically Unwell Days", f"{val} days", True))
+    else:
+        summary.append(("Physically Unwell Days", "not found — kept default", False))
+
+    m = re.search(r"Difficulty Walking[\s\S]{0,100}?\b(Yes|No)\b", text, re.IGNORECASE)
+    if m:
+        val = m.group(1).lower() == "yes"
+        updates["diffwalk"] = val
+        summary.append(("Difficulty Walking", str(val), True))
+    else:
+        summary.append(("Difficulty Walking", "not found — kept default", False))
 
     return updates, summary
 
